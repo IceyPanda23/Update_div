@@ -88,7 +88,8 @@ def update_div(localhost=None):
         failed_list = []
 
         with engine.begin() as connection:
-            df_payment = pd.read_excel(io='./PaymentMethodCodes.xlsx',engine='openpyxl',index_col=0)
+            payment_path = Path(__file__).resolve().parent / "PaymentMethodCodes.xlsx"
+            df_payment = pd.read_excel(io=payment_path,engine='openpyxl',index_col=0)
             print("List of Payment Method Code")
             Payment_code_index =  paginate_table_list(df_payment)
             Payment_code = None
@@ -170,8 +171,8 @@ def update_div(localhost=None):
 #                             SET matched = 1
 #                             FROM Dividend{div_no} INNER JOIN
 #                             [{table_name}] ON Dividend{div_no}.Shareholderno = [{table_name}].[sno] AND Dividend{div_no}.DividendNo = [{table_name}].[divno]
-# """ 
-                    # Payment_update = input("Input Payment Update") 
+# """
+                    # Payment_update = input("Input Payment Update")
                     # paymentmethod = input("Please input your payment Method:")
                     result = connection.execute(text(update_query))
                     print(f"✅ Dividend{div_no}: {result.rowcount} rows updated")
@@ -193,7 +194,8 @@ def update_div(localhost=None):
                     WHERE [{table_name}].[matched] IS NULL
                 """
         df_output = pd.read_sql(queryyy,engine)
-        df_output.to_csv(path_or_buf=f'./DIVS_NOT_UPDATED_{db_name}_{df_payment['Description'][Payment_code_index]}.csv')
+        payment_name = df_payment['Description'][Payment_code_index]
+        df_output.to_csv(path_or_buf=f'./DIVS_NOT_UPDATED_{db_name}_{payment_name}.csv')
 
     try:
         if localhost is None:
@@ -222,7 +224,7 @@ def update_div(localhost=None):
             print("List of previous server_ip:")
             print(server_credentials['Server_ip'])
 
-            pick = input("Pick number or type 'new': ")
+            pick = input("Pick number or type 'new' ")
             if pick == 'new':
                 ip = input("IP: ")
                 user = input("Username: ")
@@ -279,10 +281,8 @@ def update_div(localhost=None):
             conn_str = f"mssql+pyodbc://{user}:{password}@{ip}/{db_name}?Driver=ODBC+Driver+17+for+SQL+Server"
 
         engine = create_engine(conn_str)
-
-        df_tables = pd.read_sql("""
-            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_TYPE = 'BASE TABLE'""", engine)
+        queryyyyy =  "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
+        df_tables = pd.read_sql(queryyyyy,engine)
 
         selected_index = paginate_table_list(df_tables)
         if selected_index is not None:
@@ -311,4 +311,3 @@ def update_div(localhost=None):
 
 # Run the function
 update_div()
-
