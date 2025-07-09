@@ -116,7 +116,7 @@ def get_table_name(engine):
         table_name = str(table_name)
         return table_name
     elif replace_new == 'y':
-        query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
+        query ="SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
         df = pd.read_sql(query, engine)
 
         idx = paginate_table_list(df)
