@@ -307,7 +307,7 @@ def update_div(localhost=None):
         input("\nPress any key to exit...")
 
     else:
-        input("\nPress any key to exit...")
+        input("\nPress any key to exit....")
 
 # Run the function
 update_div()
