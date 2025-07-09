@@ -86,9 +86,9 @@ def agent_perf(nmweeks=None, yesterday=False, ytd=False):
         file_suffix = f"{nmweeks}" if nmweeks is not None else "all"
         timestamp = "weeks" if nmweeks is not None else ""
     if ytd:
-        file_path = fr'./agent_performance_YTD.xlsx'
+        file_path = f'./agent_performance_YTD.xlsx'
     else:
-        file_path = fr'./agent_performance_{file_suffix}_{timestamp}.xlsx'
+        file_path = f'./agent_performance_{file_suffix}_{timestamp}.xlsx'
 
     # Export to Excel
     agent_stats.to_excel(
