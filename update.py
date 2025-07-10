@@ -220,7 +220,8 @@ def update_div(localhost=None):
                 f"mssql+pyodbc://localhost/{db_name}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
             )
         else:
-            server_credentials = pd.read_csv(r'./server_credentials.csv')
+            creds_path = Path(__file__).resolve().parent / "server_credentials.csv"
+            server_credentials = pd.read_csv(creds_path)
             print("List of previous server_ip:")
             print(server_credentials['Server_ip'])
 

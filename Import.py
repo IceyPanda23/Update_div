@@ -14,7 +14,9 @@ def install_if_missing(package_name, import_name=None):
 install_if_missing('pandas')
 install_if_missing('sqlalchemy')
 install_if_missing('pyodbc')
+install_if_missing('pathlib')
 
+from pathlib import Path
 import pandas as pd
 from sqlalchemy import text,create_engine
 import pyodbc
@@ -65,7 +67,8 @@ def paginate_table_list(table_df, page_size=10):
             print("❌ Invalid input.")
 
 def get_server_connection():
-    creds = pd.read_csv('./server_credentials.csv')
+    creds_path = Path(__file__).resolve().parent / "server_credentials.csv"
+    creds = pd.read_csv(creds_path)
     print("List of previous server IPs:")
     print(creds['Server_ip'])
 

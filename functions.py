@@ -113,7 +113,7 @@ def agent_perf(nmweeks=None, yesterday=False, ytd=False):
     engine = create_engine(conn_str)
 
     df.to_sql(table_name, con=engine, index=False, if_exists='replace')
-    input(f"✅ Excel data successfully imported into table: {table_name}\nPress any key to exit...")
+    print(f"✅ Excel data successfully imported into table: {table_name}")
 
 def clean_call_logs():
     import pandas as pd
