@@ -123,19 +123,20 @@ def update_div(localhost=None):
                         failed_list.append(div_no)
                         continue
                     if div_no == 1:
-                        update_query = f"""
-                                        UPDATE Dividend
-                                        SET DividendPaymentDate = {table_name}.Date, DividendPaymentMethodCode = {Payment_code}, DividendPaid = 1
-                                        FROM Dividend INNER JOIN
-                                        {table_name} ON Dividend.ShareholderNo = {table_name}.sno AND Dividend.DividendNo = {table_name}.divno
-                                        """
+                        if db_name != "EABLDatabaseRegister":
+                            update_query = f"""
+                                            UPDATE Dividend
+                                            SET DividendPaymentDate = {table_name}.Date, DividendPaymentMethodCode = {Payment_code}, DividendPaid = 1
+                                            FROM Dividend INNER JOIN
+                                            {table_name} ON Dividend.ShareholderNo = {table_name}.sno AND Dividend.DividendNo = {table_name}.divno
+                                            """
 
-                        update_query_2 = f"""
-                            UPDATE {table_name}
-                            SET matched = 1
-                            FROM {table_name} INNER JOIN
-                            Dividend ON {table_name}.sno = Dividend.Shareholderno AND {table_name}.divno = Dividend.DividendNo
-                        """
+                            update_query_2 = f"""
+                                UPDATE {table_name}
+                                SET matched = 1
+                                FROM {table_name} INNER JOIN
+                                Dividend ON {table_name}.sno = Dividend.Shareholderno AND {table_name}.divno = Dividend.DividendNo
+                            """
 #                         update_query_mpesa = f"""
 #                             UPDATE Dividend
 #                             SET DividendPaymentDate = [{table_name}].[date], DividendPaymentMethodCode = 25
@@ -147,20 +148,64 @@ def update_div(localhost=None):
 #                             FROM Dividend INNER JOIN
 #                             [{table_name}] ON Dividend.Shareholderno = [{table_name}].[sno] AND Dividend.DividendNo = [{table_name}].[divno]
 # """
-                    else:
-                        update_query = f"""
-                                            UPDATE Dividend{div_no}
-                                            SET DividendPaymentDate = {table_name}.Date, DividendPaymentMethodCode = {Payment_code}, DividendPaid = 1
-                                            FROM Dividend{div_no} INNER JOIN
-                                             {table_name} ON Dividend{div_no}.ShareholderNo = {table_name}.sno AND Dividend{div_no}.DividendNo = {table_name}.divno
-                                         """
+                        else:
+                            update_query = f"""
+                                UPDATE Dividend
+                                SET DividendPaymentDate = {table_name}.Date, DividendPaid = 1
+                                FROM Dividend INNER JOIN
+                                {table_name} ON Dividend.ShareholderNo = {table_name}.sno AND Dividend.DividendNo = {table_name}.divno
+                                """
 
-                        update_query_2 = f"""
-                            UPDATE {table_name}
-                            SET matched = 1
-                            FROM {table_name} INNER JOIN
-                            Dividend{div_no} ON {table_name}.sno = Dividend{div_no}.Shareholderno AND {table_name}.divno = Dividend{div_no}.DividendNo
-                        """
+                            update_query_2 = f"""
+                                UPDATE {table_name}
+                                SET matched = 1
+                                FROM {table_name} INNER JOIN
+                                Dividend ON {table_name}.sno = Dividend.Shareholderno AND {table_name}.divno = Dividend.DividendNo
+                            """
+#                         update_que
+                    else:
+                        if db_name != "EABLDatabaseRegister":
+                            update_query = f"""
+                                                UPDATE Dividend{div_no}
+                                                SET DividendPaymentDate = {table_name}.Date, DividendPaymentMethodCode = {Payment_code}, DividendPaid = 1
+                                                FROM Dividend{div_no} INNER JOIN
+                                                {table_name} ON Dividend{div_no}.ShareholderNo = {table_name}.sno AND Dividend{div_no}.DividendNo = {table_name}.divno
+                                            """
+
+                            update_query_2 = f"""
+                                UPDATE {table_name}
+                                SET matched = 1
+                                FROM {table_name} INNER JOIN
+                                Dividend{div_no} ON {table_name}.sno = Dividend{div_no}.Shareholderno AND {table_name}.divno = Dividend{div_no}.DividendNo
+                            """
+                        else:
+                            update_query = f"""
+                                UPDATE Dividend{div_no}
+                                SET DividendPaymentDate = {table_name}.Date, DividendPaid = 1
+                                FROM Dividend{div_no} INNER JOIN
+                                {table_name} ON Dividend{div_no}.ShareholderNo = {table_name}.sno AND Dividend{div_no}.DividendNo = {table_name}.divno
+                            """
+
+                            update_query_2 = f"""
+                                UPDATE {table_name}
+                                SET matched = 1
+                                FROM {table_name} INNER JOIN
+                                Dividend{div_no} ON {table_name}.sno = Dividend{div_no}.Shareholderno AND {table_name}.divno = Dividend{div_no}.DividendNo
+                            """
+                        # else:
+                        #     update_query = f"""
+                        #         UPDATE Dividend{div_no}
+                        #         SET DividendPaymentDate = {table_name}.Date, DividendPaymentMethodCode = {Payment_code}, DividendPaid = 1
+                        #         FROM Dividend{div_no} INNER JOIN
+                        #         {table_name} ON Dividend{div_no}.ShareholderNo = {table_name}.sno AND Dividend{div_no}.DividendNo = {table_name}.divno
+                        #     """
+
+                        #     update_query_2 = f"""
+                        #         UPDATE {table_name}
+                        #         SET matched = 1
+                        #         FROM {table_name} INNER JOIN
+                        #         Dividend{div_no} ON {table_name}.sno = Dividend{div_no}.Shareholderno AND {table_name}.divno = Dividend{div_no}.DividendNo
+                        #     """
 #                         update_query_mpesa = f"""
 #                             UPDATE Dividend{div_no}
 #                             SET DividendPaymentDate = [{table_name}].[date], DividendPaymentMethodCode = 25
