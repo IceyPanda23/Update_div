@@ -128,7 +128,8 @@ def clean_call_logs():
     df['Call Time'] = pd.to_datetime(df['Call Time'],errors='coerce')
     df = df[df['Status'] != 'Waiting']
     df = df[df['Direction'] != 'Internal']
-    df = df.drop(columns=['Sentiment','Summary','Transcription','Call ID','Ringing'])
+    df = df[df['Direction'] != 'Inbound Queue']
+    df = df.drop(columns=['Sentiment','Summary','Transcription','Call ID'])
     df.loc[df['Status'] == 'Unanswered', 'Talking'] = '00:00:00'
     df['Talking'] = pd.to_timedelta(df['Talking'], errors='coerce')
     from_pattern = r'^(.+\s\(\d{4}\)|\d{4})$'
@@ -163,14 +164,19 @@ def clean_call_logs():
         AGM_phone_list.append(val)
     df = df[~df['From'].isin(AGM_phone_list)]
     df['Talking'] = (df['Talking'].dt.total_seconds() / 60).round(2)
-    df_answered = df[df['Status'] == 'Answered'].reset_index()
-    df_unanswered = df[df['Status'] == 'Unanswered'].reset_index()
+    df['Ringing'] = pd.to_timedelta(df['Ringing'],errors='coerce')
+    df['Ringing'] = (df['Ringing'].dt.total_seconds())
+    df.loc[df['Direction'] == 'Inbound', 'Direction'] = 'Incoming'
+    df.loc[df['Direction'] == 'Outbound', 'Direction'] = 'Outgoing'
+    df['Incoming_true'] = (df['Direction'] == 'Incoming').astype(int)
+    df_incoming = df[df['Direction'] == 'Incoming'].reset_index()
+    df_outgoing = df[df['Direction'] == 'Outgoing'].reset_index()
     conn_str = f"mssql+pyodbc://sa:skyblue2009*@192.168.11.3/QueueSystem?driver=ODBC+Driver+17+for+SQL+Server"
     engine = create_engine(conn_str, fast_executemany=True)
-    df_answered.to_sql('Clean_3cx_Answered', con=engine, index=False, if_exists='replace')
-    print(f"✅ Data successfully imported into table: 3cx_Clean_Answered")
-    df_unanswered.to_sql('Clean_3cx_Unanswered', con=engine, index=False,if_exists='replace')
-    print(f"✅ Data successfully imported into table: 3cx_Clean_Unanswered")
+    df_incoming.to_sql('Clean_3cx_incoming', con=engine, index=False, if_exists='replace')
+    print(f"✅ Data successfully imported into table: 3cx_Clean_incoming")
+    df_outgoing.to_sql('Clean_3cx_outgoing', con=engine, index=False,if_exists='replace')
+    print(f"✅ Data successfully imported into table: 3cx_Clean_outgoing")
     df.to_sql('Clean_3cx_All', con=engine, index=False, if_exists='replace')
     print(f'✅ Data successfully imported into table: 3cx_Clean_All')
 

@@ -88,8 +88,12 @@ def update_div(localhost=None):
         failed_list = []
 
         with engine.begin() as connection:
-            payment_path = Path(__file__).resolve().parent / "PaymentMethodCodes.xlsx"
-            df_payment = pd.read_excel(io=payment_path,engine='openpyxl',index_col=0)
+            # payment_path = Path(__file__).resolve().parent / "PaymentMethodCodes.xlsx"
+            query_pc = f"""  SELECT [Code],[Description]
+                            FROM [{db_name}].[dbo].[DividendPaymentMethods]
+                            ORDER BY Description;
+                        """
+            df_payment = pd.read_sql(query_pc,connection)
             print("List of Payment Method Code")
             Payment_code_index =  paginate_table_list(df_payment)
             Payment_code = None
