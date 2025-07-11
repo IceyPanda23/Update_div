@@ -1,0 +1,13 @@
+Dear John,
+All objectives have been fulfilled as per the initial email.
+Attached is the power bi file with today's progress.
+https://app.powerbi.com/links/bBhMgAGaxx?ctid=2fd89b8e-6366-4b29-b03b-5b334c1827ac&pbi_source=linkShare
+ 
+	 Power BI
+ <https://app.powerbi.com/13.0.26056.38/staticContents/bot/report_icon_tri.png> 
+Walk In Dashboard
+
+Workspace > Valentine Kariuki
+
+Open <https://app.powerbi.com/links/bBhMgAGaxx?ctid=2fd89b8e-6366-4b29-b03b-5b334c1827ac&pbi_source=Outlook&buttonType=OpenButton&action=OpenReport> 
+

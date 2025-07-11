@@ -1,0 +1,76 @@
+Dear Ronald, 
+
+As discussed, we will  focus on the Walk-In Shareholder Dashboard as a start.
+I have attached a link to a sample dashboard built using Power BI for your reference.
+Also attached is the process and the technologies that will be used to execute this task.
+
+QueueAnalysis.pbix <https://imagecoke-my.sharepoint.com/:u:/g/personal/john_bett_image_co_ke1/EeLO-fWb0VZAvEhicgPSgOsBQkEqnsLCFXOjO8NxEOPf1A> 
+
+
+Dashboard should entail.
+
+1.	
+	Agent performance.
+2.	
+	Most active counter.
+3.	
+	Most frequent shareholders by names
+4.	
+	Most common issues being enquired. 
+5.	
+	Most active time of the day.
+6.	
+	Average waiting time both overall and per Agent
+7.	
+	Average Serving time both overall and per Agent
+8.	
+	Add more inside that you find important based on the data. 
+
+
+You need to have QueueDatabase restored on you laptop and understand the Tables before working on the pipeline. @Augustine Oduor <mailto:Augustine.oduor@image.co.ke>  will guide you. 
+
+
+
+
+
+	  Regards,
+  John Bett, 
+  Assistant Director - ICT
+
+
+	
+HEAD OFFICE
+
+UGANDA 
+
+5th; Floor, Absa Towers, Loita Street
+
+1st Floor, Jubilee Insurance Center, Plot 14, Parliament Avenue
+
+P.O.Box 9287- 00100 GPO, Nairobi, Kenya
+
+DL: 0709 170011
+
+
+P. O. Box 110228 Kampala Uganda
+
+T: +256 762 260 804/+256 758 336 660
+
+
+T: +254 709 170 000/+254 735 565 666
+
+
+www.image.co.ke
+
+
+
+
+
+	
+Disclaimer: This email and any of its attachments contain information that is intended solely for the use of the individual or entity to whom it is addressed. If you are not the intended recipient, please notify the sender immediately and delete this email from your system. Any unauthorized use, disclosure, circulation, reproduction or reliance upon the contents of this email is strictly prohibited and may be unlawful.
+
+
+
+
+
+

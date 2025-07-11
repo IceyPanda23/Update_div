@@ -1,0 +1,37 @@
+def Import_Thing(file_path=None,file_name=None):
+    import pandas as pd
+    import numpy as np
+    import sqlalchemy
+    from sqlalchemy import create_engine
+    from datetime import datetime, timedelta
+    import re
+    #weka filename and file path below
+    file_name = str(input("Please Input the File Name:"))
+    file_path = str(input("Please Input the File Path:"))
+    file_name = file_name
+    file_path = (file_path)
+    df = pd.read_excel(file_path)
+    conn_str = (
+            "mssql+pyodbc://./StandardCharteredRegister1"
+            "?driver=ODBC+Driver+17+for+SQL+Server"
+            "&trusted_connection=yes"
+        )
+
+
+    engine = create_engine(conn_str, fast_executemany=True)
+
+    # Write to SQL        try:
+    df.to_sql(file_name, con=engine, index=False, if_exists='replace')
+    print(f"✅ Data successfully imported into table: {file_name}")
+
+________________________________
+
+From: Ronald Kipngetich <ronald.kipngetich@image.co.ke>
+Sent: Thursday, July 3, 2025 11:32 AM
+To: Joshua kipseba <Joshua.kipseba@image.co.ke>
+Subject: 
+ 
+https://app.powerbi.com/reportEmbed?reportId=d0512175-6d00-4515-987a-296c4de4e804
+
+
+

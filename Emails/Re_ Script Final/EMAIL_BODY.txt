@@ -1,0 +1,97 @@
+import pandas as pd
+import sqlalchemy
+from sqlalchemy import create_engine
+from datetime import datetime, timedelta
+import re # Keep if you use regex elsewhere, not strictly needed for this snippet
+import pyodbc # Explicitly import pyodbc as it's used by sqlalchemy for MSSQL
+
+def Import_Thing(file_path: str, table_name: str):
+    """
+    Imports data from an Excel file into a SQL Server table and
+    then executes an UPDATE query.
+
+    Args:
+        file_path (str): The full path to the Excel file (e.g., 'E:/data/my_file.xlsx').
+                         Use forward slashes or raw strings (r'...') for Windows paths.
+        table_name (str): The name of the SQL table to import data into.
+    """
+    print(f"Attempting to read Excel file from: {file_path}")
+    try:
+        # Read the Excel file into a pandas DataFrame
+        df = pd.read_excel(file_path)
+        print("✅ Excel file successfully read into DataFrame.")
+
+    except FileNotFoundError:
+        print(f"❌ Error: The file '{file_path}' was not found. Please check the path and filename.")
+        return # Exit the function if the file isn't found
+    except Exception as e:
+        print(f"❌ An error occurred while reading the Excel file: {e}")
+        return # Exit the function if file reading fails
+
+    # Define the SQL Server connection string
+    conn_str = (
+        "mssql+pyodbc://./StandardCharteredRegister1"
+        "?driver=ODBC+Driver+17+for+SQL+Server"
+        "&trusted_connection=yes"
+    )
+
+    # Create the SQLAlchemy engine
+    try:
+        engine = create_engine(conn_str, fast_executemany=True)
+        print("✅ Database engine created successfully.")
+    except Exception as e:
+        print(f"❌ Error creating database engine: {e}")
+        print("Please ensure SQL Server and ODBC Driver 17 are correctly installed and accessible.")
+        return
+
+    # --- Step 1: Write DataFrame to SQL Server table ---
+    try:
+        # 'if_exists='replace'' will drop the table if it exists and recreate it
+        df.to_sql(table_name, con=engine, index=False, if_exists='replace')
+        print(f"✅ Data successfully imported into table: {table_name}")
+    except Exception as e:
+        print(f"❌ Error importing data to SQL table '{table_name}': {e}")
+        return # Exit if data import fails
+
+    # --- Step 2: Execute the UPDATE query ---
+    # This query assumes 'NEWUPDATE' is the table created in the previous step.
+    # It will update 'Dividend81' based on a join with the newly imported 'NEWUPDATE' table.
+    update_query = f"""
+    UPDATE Dividend81
+    SET
+        DividendPaymentDate = NEWUPDATE.[pay date],
+        DividendPaymentMethodCode = 35
+    FROM
+        Dividend81
+    INNER JOIN
+        {table_name} AS NEWUPDATE ON Dividend81.Shareholderno = NEWUPDATE.shareholder AND Dividend81.DividendNo = NEWUPDATE.div_no;
+    """
+
+    print(f"\nAttempting to execute UPDATE query on Dividend81 table...")
+    print(f"Query: {update_query}")
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(sqlalchemy.text(update_query))
+            connection.commit() # Commit the transaction
+            print(f"✅ UPDATE query executed successfully. Rows affected: {result.rowcount}")
+    except sqlalchemy.exc.SQLAlchemyError as e:
+        print(f"❌ Error executing UPDATE query: {e}")
+        print("Please check the column names ([pay date], shareholder) and table names (Dividend81, NEWUPDATE) in your query.")
+    except Exception as e:
+        print(f"❌ An unexpected error occurred during UPDATE query execution: {e}")
+
+
+
+SQL QUERY 
+SELECT div_no
+FROM     testupdatefile
+GROUP BY div_no
+
+________________________________
+
+From: Ronald Kipngetich <ronald.kipngetich@image.co.ke>
+Sent: Friday, July 4, 2025 1:18 PM
+To: Joshua kipseba <Joshua.kipseba@image.co.ke>
+Subject: Script Final 
+ 

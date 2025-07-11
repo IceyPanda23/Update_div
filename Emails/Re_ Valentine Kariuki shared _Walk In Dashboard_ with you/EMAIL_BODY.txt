@@ -1,0 +1,46 @@
+Average of CustomerServingTimeInMinutes average per Username =
+AVERAGEX(
+    VALUES('nkevinDataAnalyticsBI'[Username]),
+    CALCULATE(
+        AVERAGE('nkevinDataAnalyticsBI'[CustomerBeingServedInMinutes]),
+       filter( 'nkevinDataAnalyticsBI', 'nkevinDataAnalyticsBI'[CustomerBeingServedInMinutes] >= 0)
+    )
+)
+
+________________________________
+
+From: Ronald Kipngetich <ronald.kipngetich@image.co.ke>
+Sent: Wednesday, June 11, 2025 2:03 PM
+To: Valentine Kariuki <valentine.kariuki@image.co.ke>
+Subject: Re: Valentine Kariuki shared "Walk In Dashboard" with you 
+ 
+Toggle buttons for switching a date slicer in Power BI - YouTube <https://www.youtube.com/watch?v=KXIN2PfdDvM> 
+________________________________
+
+From: Ronald Kipngetich <ronald.kipngetich@image.co.ke>
+Sent: Wednesday, June 11, 2025 9:58 AM
+To: Valentine Kariuki <valentine.kariuki@image.co.ke>
+Subject: Re: Valentine Kariuki shared "Walk In Dashboard" with you 
+ 
+Could you share the code used for those 2 bottom left cards
+________________________________
+
+From: Valentine Kariuki <valentine.kariuki@image.co.ke>
+Sent: Wednesday, June 11, 2025 9:06 AM
+To: Ronald Kipngetich <ronald.kipngetich@image.co.ke>
+Subject: Valentine Kariuki shared "Walk In Dashboard" with you 
+ 
+ 	
+	
+Valentine Kariuki invited you to edit a file 
+
+	
+Here's the document that Valentine Kariuki shared with you. 
+
+<https://imagecoke-my.sharepoint.com/:u:/r/personal/valentine_kariuki_image_co_ke/Documents/Attachments/Walk%20In%20Dashboard.pbix?e=4%3a6cc0dbc139334cb98b038cfb70a4d2fc&web=1&sharingv2=true&fromShare=true&at=9> 
+ 	Walk In Dashboard 	
+ 	This invite will only work for you and people with existing access. 	
+Open <https://imagecoke-my.sharepoint.com/:u:/r/personal/valentine_kariuki_image_co_ke/Documents/Attachments/Walk%20In%20Dashboard.pbix?e=4%3a6cc0dbc139334cb98b038cfb70a4d2fc&web=1&sharingv2=true&fromShare=true&at=9> 		Share <https://imagecoke-my.sharepoint.com/:u:/r/personal/valentine_kariuki_image_co_ke/Documents/Attachments/Walk%20In%20Dashboard.pbix?e=4%3a6cc0dbc139334cb98b038cfb70a4d2fc&web=1&openShare=true&fromShare=true&at=9> 	
+This email is generated through IMAGE REGISTRARS LTD's use of Microsoft 365 and may contain content that is controlled by IMAGE REGISTRARS LTD.
+
+ <https://northeuroper-notifyp.svc.ms:443/api/v2/tracking/method/View?mi=eCgsIrvIRkWxw8YZ8ZMROQ> 

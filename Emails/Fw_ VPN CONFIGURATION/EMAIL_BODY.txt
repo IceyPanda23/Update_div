@@ -1,0 +1,73 @@
+
+
+________________________________
+
+From: Joshua kipseba
+Sent: Monday, July 1, 2024 3:06 PM
+To: E-Correspondence <E-Correspondence@image.co.ke>; CALL CENTER <callcenter@image.co.ke>; Customer Service <cs@image.co.ke>; IMAGE ICT <ict@image.co.ke>; Heads of Department <headofdept@image.co.ke>; secretarial <secretarial@image.co.ke>; ADMIN & FINANCE <adminFinance@image.co.ke>
+Subject: VPN CONFIGURATION
+ 
+Dear Team,
+This email will help you set up a VPN connection for working securely from anywhere.
+What is a VPN?
+Think of a VPN as a private tunnel between your device and the office network. It encrypts your internet traffic,  so that you can access office resources safely even on public networks.
+How to Set Up the VPN:
+
+1.	
+	Click on the VPN configuration document attached to this email.
+2.	
+	Follow the specific instructions in the document
+3.	
+	Connect to the VPN. The document will explain how to initiate the VPN connection.
+
+Once connected:
+
+*	You'll be securely connected to the office network, allowing you to access work files and applications remotely.
+
+Kindly download the application files as shown in the below document and we will be available to provide support on installation.
+
+
+VPN Configuration.docx <https://imagecoke-my.sharepoint.com/:w:/g/personal/john_bett_image_co_ke1/EWlc9KZUe1VAkg14AV5H434Bkl2-tH--016M8JNTIFsSDg>  
+
+
+
+
+
+
+	  Regards,
+  Joshua kipseba,
+  ICT Assistant
+
+
+	
+HEAD OFFICE
+
+UGANDA 
+
+5th; Floor, Absa Towers, Loita Street
+
+1st Floor, Jubilee Insurance Center, Plot 14, Parliament Avenue
+
+P.O.Box 9287- 00100 GPO, Nairobi, Kenya
+
+DL: 0709170020
+
+P. O. Box 110228 Kampala Uganda
+
+T: +256 762 260 804/+256 758 336 660
+
+T: +254 709 170 000/+254 735 565 666
+
+
+www.image.co.ke
+
+
+		 
+	
+Disclaimer: This email and any of its attachments contain information that is intended solely for the use of the individual or entity to whom it is addressed. If you are not the intended recipient, please notify the sender immediately and delete this email from your system. Any unauthorized use, disclosure, circulation, reproduction or reliance upon the contents of this email is strictly prohibited and may be unlawful.
+
+
+
+
+
+

@@ -1,0 +1,34 @@
+thank you
+________________________________
+
+From: Ronald Kipngetich <ronald.kipngetich@image.co.ke>
+Sent: Thursday, July 10, 2025 12:35 PM
+To: Valentine Kariuki <valentine.kariuki@image.co.ke>
+Subject: EXCEL TO SQL 
+ 
+# Dear Valentine,
+
+
+
+# Change the necessary variable names and run it through vscode :)
+
+import pandas as pd
+from sqlalchemy import text,create_engine
+import pyodbc
+
+Filepath = r"C:\Users\Ronald.Kipngetich\OneDrive - IMAGE REGISTRARS LTD\Documents\py\Updates\clean_\agent_performance_YTD.xlsx"
+New_table_name = "trialtablee"
+Db_name = "EABLDatabaseRegister"
+localhost = False
+
+if localhost:
+    conn_str = f"mssql+pyodbc://localhost/{Db_name}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+    engine = create_engine(conn_str,fast_executemany=True)
+    excel_file = pd.read_excel(Filepath,engine='openpyxl')
+    excel_file.to_sql(New_table_name,con=engine,if_exists='replace',index=False)
+else:
+    part_url = "//sa:skyblue2009*"
+    conn_str = f"mssql+pyodbc:{part_url}@192.168.11.3/{Db_name}?driver=ODBC+Driver+17+for+SQL+Server"
+    engine = create_engine(conn_str,fast_executemany=True)
+    excel_file = pd.read_excel(Filepath,engine='openpyxl')
+    excel_file.to_sql(New_table_name,con=engine,if_exists='replace',index=False)

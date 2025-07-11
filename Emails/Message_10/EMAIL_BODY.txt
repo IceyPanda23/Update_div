@@ -1,0 +1,29 @@
+conn_str = (
+        "mssql+pyodbc://./QueueSystem"
+        "?driver=ODBC+Driver+17+for+SQL+Server"
+        "&trusted_connection=yes"
+    )
+
+    try:
+        engine = create_engine(conn_str, fast_executemany=True)
+
+        # Write to SQL
+        df_answered.to_sql('Clean_3cx_Answered', con=engine, index=False, if_exists='replace')
+        print("✅ Data successfully imported into table: Clean_3cx_Answered")
+        df_inbound.to_sql('Clean_3cx_inbound', con=engine, index=False, if_exists='replace')
+        print("✅ Data successfully imported into table: Clean_3cx_inbound")
+
+        df_outbound.to_sql('Clean_3cx_outbound', con=engine, index=False, if_exists='replace')
+        print("✅ Data successfully imported into table: Clean_3cx_outbound")
+
+        df_unanswered.to_sql('Clean_3cx_Unanswered', con=engine, index=False, if_exists='replace')
+        print("✅ Data successfully imported into table: Clean_3cx_Unanswered")
+
+        df.to_sql('Clean_3cx_All', con=engine, index=False, if_exists='replace')
+        print("✅ Data successfully imported into table: Clean_3cx_All")
+
+    except Exception as e:
+        print("❌ Failed to connect or insert into SQL Server:")
+        print(e)
+
+
