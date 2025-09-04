@@ -113,7 +113,7 @@ def agent_perf(nmweeks=None, yesterday=False, ytd=False):
     engine = create_engine(conn_str)
 
     df.to_sql(table_name, con=engine, index=False, if_exists='replace')
-    print(f"✅ Excel data successfully imported into table: {table_name}")
+    print(f" Excel data successfully imported into table: {table_name}")
 
 def clean_call_logs():
     from functions import ensure_module
@@ -137,7 +137,9 @@ def clean_call_logs():
 
 
     import_emails()
-    file_path = Path(__file__).resolve().parent / "Emails" / "3CX Update" / "call_reports.csv"
+    yesterdays = datetime.now() - timedelta(days=1)
+    yesterday_day = int(yesterdays.strftime('%Y%d%m'))
+    file_path = Path(__file__).resolve().parent / "Emails" / "Your 3CX Scheduled Reports are ready" / f"3CX_Report_{yesterday_day}.csv"
     df = pd.read_csv(file_path)
     df['Call Time'] = pd.to_datetime(df['Call Time'],errors='coerce')
     df = df[df['Status'] != 'Waiting']
@@ -189,11 +191,11 @@ def clean_call_logs():
     conn_str = f"mssql+pyodbc://sa:skyblue2009*@192.168.11.3/QueueSystem?driver=ODBC+Driver+17+for+SQL+Server"
     engine = create_engine(conn_str, fast_executemany=True)
     df_incoming.to_sql('Clean_3cx_incoming', con=engine, index=False, if_exists='replace')
-    print(f"✅ Data successfully imported into table: 3cx_Clean_incoming")
+    print(f" Data successfully imported into table: 3cx_Clean_incoming")
     df_outgoing.to_sql('Clean_3cx_outgoing', con=engine, index=False,if_exists='replace')
-    print(f"✅ Data successfully imported into table: 3cx_Clean_outgoing")
+    print(f" Data successfully imported into table: 3cx_Clean_outgoing")
     df.to_sql('Clean_3cx_All', con=engine, index=False, if_exists='replace')
-    print(f'✅ Data successfully imported into table: 3cx_Clean_All')
+    print(f' Data successfully imported into table: 3cx_Clean_All')
 
 
 def sanitize_filename(name, max_length=80):
@@ -239,7 +241,11 @@ def import_emails():
         inbox = outlook.GetDefaultFolder(6)
         messages = inbox.Items
 
-        for idx, message in enumerate(messages):
+        # for idx, message in enumerate(messages):
+        target_subject = "Your 3CX Scheduled Reports are ready"
+        filtered_messages = [msg for msg in messages if msg.Subject and target_subject in msg.Subject]
+
+        for idx, message in enumerate(filtered_messages):
             raw_subject = str(message.Subject) or f"Message_{idx}"
             subject = sanitize_filename(raw_subject, 80)
             body = message.Body
@@ -253,7 +259,14 @@ def import_emails():
             for a_idx in range(1, attachments.Count + 1):
                 attachment = attachments.Item(a_idx)
                 raw_name = attachment.FileName or f"attachment_{a_idx}.dat"
-                safe_name = sanitize_filename(raw_name, 80)
+                match = re.match(r"thismonth_(\d{2})(\d{2})_",raw_name)
+                if match:
+                    day = match.group(1)
+                    month = match.group(2)
+                    safe_name = f"3CX_Report_2025{day}{month}.csv"
+                else:
+
+                    safe_name = f"attachment_{a_idx}{Path(raw_name).suffix}"
 
                 save_path = target_folder / safe_name
 

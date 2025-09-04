@@ -1,0 +1,14 @@
+C:\Users\Ronald.Kipngetich\OneDrive - IMAGE REGISTRARS LTD\Documents\py\Updates\clean_\functions.py:158: UserWarning: This pattern is interpreted as a regular expression, and has match groups. To actually get the groups, use str.extract.
+  df['Call Activity Details'].str.contains(details_pattern_2, na=False) |
+C:\Users\Ronald.Kipngetich\OneDrive - IMAGE REGISTRARS LTD\Documents\py\Updates\clean_\functions.py:160: UserWarning: This pattern is interpreted as a regular expression, and has match groups. To actually get the groups, use str.extract.
+  df['Call Activity Details'].str.contains(details_pattern_5, na=False)
+C:\Users\Ronald.Kipngetich\OneDrive - IMAGE REGISTRARS LTD\Documents\py\Updates\clean_\functions.py:173: UserWarning: This pattern is interpreted as a regular expression, and has match groups. To actually get the groups, use str.extract.
+  df['From'].str.contains(from_pattern, na=False) &
+ Excel data successfully imported into table: AgentPerformanceAttempt_1_weeks
+ Excel data successfully imported into table: AgentPerformanceAttempt_4_weeks
+ Excel data successfully imported into table: AgentPerformanceAttempt_all_
+ Excel data successfully imported into table: AgentPerformanceAttempt_yesterday
+ Excel data successfully imported into table: AgentPerformanceAttempt_YTD
+ Data successfully imported into table: 3cx_Clean_incoming
+ Data successfully imported into table: 3cx_Clean_outgoing
+ Data successfully imported into table: 3cx_Clean_All

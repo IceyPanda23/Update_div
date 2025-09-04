@@ -1,0 +1,883 @@
+# --------------------------------------------------------------
+# update_div.py
+# --------------------------------------------------------------
+def update_div(localhost=None):
+    """
+    Compare a staging table with Dividend tables, preview changes,
+    then apply updates that mark paid dividends and flag matched rows.
+    After the update it prints how many rows were changed per dividend.
+    """
+
+    # ---------------------------------------------------------- #
+    # 1. Ensure required modules are present
+    # ---------------------------------------------------------- #
+    import importlib
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    def ensure_module(pkg, import_name=None):
+        import_name = import_name or pkg
+        try:
+            importlib.import_module(import_name)
+        except ImportError:
+            print(f"🔍 '{import_name}' missing – installing '{pkg}' …")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
+    for pkg in ("pandas", "sqlalchemy", "pyodbc", "openpyxl"):
+        ensure_module(pkg)
+
+    import pandas as pd
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.exc import ProgrammingError
+
+    # ---------------------------------------------------------- #
+    # 2. Friend-proof pager: numbered list, no pandas ellipsis
+    # ---------------------------------------------------------- #
+    def paginate_list(df, page_size=10, prompt="Select item"):
+        """
+        Display df (first column as label) page by page and return
+        the absolute index chosen, or None if user quits.
+        """
+        full, filt = df.copy(), df.copy()
+        page = 0
+
+        while True:
+            total = len(filt)
+            start, end = page * page_size, min((page + 1) * page_size, total)
+            print(f"\n▶ {prompt} {start}–{end - 1} of {total - 1}")
+            for rel, (abs_i, row) in enumerate(filt.iloc[start:end].iterrows()):
+                print(f"{rel:>3} │ {row.iloc[0]}")
+
+            print("\n[Enter]=next | p=prev | n=index | s:term | r=reset | q=quit")
+            cmd = input("Select: ").strip().lower()
+
+            if cmd == "":
+                page = page + 1 if end < total else page
+            elif cmd == "p":
+                page = max(page - 1, 0)
+            elif cmd == "r":
+                filt, page = full.copy(), 0
+            elif cmd.startswith("s:"):
+                term = cmd[2:].strip()
+                filt, page = (
+                    full[full.iloc[:, 0].str.lower().str.contains(term)],
+                    0,
+                )
+            elif cmd == "q":
+                return None
+            elif cmd.isdigit():
+                abs_idx = page * page_size + int(cmd)
+                if 0 <= abs_idx < total:
+                    return filt.index[abs_idx]
+                print("❌ Invalid index.")
+            else:
+                print("❌ Unrecognised input.")
+
+    # ---------------------------------------------------------- #
+    # 3. Preview & update worker
+    # ---------------------------------------------------------- #
+    def run_updates(engine, db_name, table_name, div_list):
+        """
+        • Build a preview workbook listing matched / unmatched rows.
+        • Ask user to confirm (optional).
+        • Perform updates & mark matched rows.
+        • Export any still-unmatched rows after the update.
+        • Print rows-affected statistics per dividend.
+        """
+        with engine.begin() as connection:
+            # ---------- 3-A Preview before touching data ----------
+            union_parts = []
+            for div_no in div_list:
+                part = (
+                    "SELECT ShareholderNo, DividendNo FROM Dividend"
+                    if div_no == 1
+                    else f"SELECT ShareholderNo, DividendNo FROM Dividend{div_no}"
+                )
+                union_parts.append(part)
+
+            union_sql = "\nUNION ALL\n".join(union_parts)
+
+            matched_q = f"""
+                SELECT src.*
+                FROM [{db_name}].[dbo].[{table_name}] src
+                INNER JOIN ({union_sql}) tgt
+                    ON src.sno = tgt.ShareholderNo
+                   AND src.divno = tgt.DividendNo
+            """
+            unmatched_q = f"""
+                SELECT src.*
+                FROM [{db_name}].[dbo].[{table_name}] src
+                LEFT JOIN ({union_sql}) tgt
+                    ON src.sno = tgt.ShareholderNo
+                   AND src.divno = tgt.DividendNo
+                WHERE tgt.ShareholderNo IS NULL
+            """
+
+            df_will = pd.read_sql(matched_q, connection)
+            df_no = pd.read_sql(unmatched_q, connection)
+
+            prev_path = f"./DIVS_PREVIEW_{db_name}_{table_name}.xlsx"
+            with pd.ExcelWriter(prev_path, engine="openpyxl") as wrt:
+                df_will.to_excel(wrt, sheet_name="Will_Update", index=False)
+                df_no.to_excel(wrt, sheet_name="No_Match", index=False)
+
+            print(f"\n📝 Preview saved to {prev_path}")
+
+            # --------- 3-B (Optional) confirm continue ----------
+            go = input("Proceed with updates? (y/n): ").strip().lower()
+            if go != "y":
+                print("Aborted by user.")
+                return
+
+            # ---------- 3-C Pick payment method ----------
+            pay_df = pd.read_sql(
+                f"""SELECT Code, Description
+                    FROM [{db_name}].[dbo].[DividendPaymentMethods]
+                    ORDER BY Description""",
+                connection,
+            )
+            print("Payment methods:")
+            pay_idx = paginate_list(pay_df, prompt="Select payment method")
+            if pay_idx is None:
+                code_in = input("Enter Code manually or 'q' to quit: ").strip()
+                if code_in.lower() == "q":
+                    print("Exiting…")
+                    return
+                pay_code = int(code_in)
+                pay_desc = str(pay_code)
+            else:
+                pay_code = int(pay_df.at <http://pay_df.at> [pay_idx, "Code"])
+                pay_desc = pay_df.at <http://pay_df.at> [pay_idx, "Description"]
+
+        # ---------- 3-D Apply updates ----------
+        succ, fail = [], []
+        update_stats = [] # (div_no, rows_affected)
+
+        with engine.begin() as connection:
+            for div_no in div_list:
+                div_no = int(div_no)
+                div_tbl = "Dividend" if div_no == 1 else f"Dividend{div_no}"
+
+                set_clause = (
+                    "DividendPaymentDate = src.Date, "
+                    "DividendPaymentMethodCode = :pc, "
+                    "DividendPaid = 1"
+                    if db_name != "EABLDatabaseRegister"
+                    else "DividendPaymentDate = src.Date, DividendPaid = 1"
+                )
+
+                upd = f"""
+                    UPDATE {div_tbl}
+                    SET {set_clause}
+                    FROM {div_tbl} tgt
+                    INNER JOIN {table_name} src
+                        ON tgt.ShareholderNo = src.sno
+                       AND tgt.DividendNo = src.divno
+                """
+                mark = f"""
+                    UPDATE {table_name}
+                    SET matched = 1
+                    FROM {table_name} src
+                    INNER JOIN {div_tbl} tgt
+                        ON src.sno = tgt.ShareholderNo
+                       AND src.divno = tgt.DividendNo
+                """
+
+                try:
+                    res_upd = connection.execute(text(upd), {"pc": pay_code})
+                    _ = connection.execute(text(mark))
+                    succ.append(div_no)
+                    update_stats.append((div_no, res_upd.rowcount or 0))
+                except ProgrammingError as e:
+                    # Missing table (or other SQL errors) fall here
+                    print(f"❌ Dividend{div_no} failed: {e.orig.args[1]}")
+                    fail.append(div_no)
+
+        print("\n✅ Updated:", succ or "None")
+        print("❌ Failed :", fail or "None")
+
+        if update_stats:
+            print("\n📊 Rows affected per dividend:")
+            width = max(len(str(d)) for d, _ in update_stats)
+            for dn, rc in update_stats:
+                print(f" Dividend{str(dn).ljust(width)} : {rc:>7} rows")
+            total_rows = sum(rc for _, rc in update_stats)
+            print(f" ────────────────────────────────\n Total updated : {total_rows} rows")
+
+        # ---------- 3-E Export rows still unmatched ----------
+        with engine.begin() as conn:
+            df_out = pd.read_sql(
+                f"""SELECT * FROM [{db_name}].[dbo].[{table_name}]
+                    WHERE matched IS NULL""",
+                conn,
+            )
+        out_path = f"./DIVS_NOT_UPDATED_{db_name}_{pay_desc}.xlsx"
+        df_out.to_excel(out_path, engine="openpyxl")
+        print(f"📄 Post-update unmatched rows → {out_path}")
+
+    # ---------------------------------------------------------- #
+    # 4. Top-level: connect, pick DB & table, launch run_updates
+    # ---------------------------------------------------------- #
+    try:
+        # ---- 4-A Local or remote? ----
+        if localhost is None:
+            localhost = input("Use localhost SQL Server? (y/n): ").lower() == "y"
+
+        if localhost:
+            engine = create_engine(
+                "mssql+pyodbc://localhost/master?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+            )
+            db_df = pd.read_sql(
+                "SELECT name FROM sys.databases "
+                "WHERE name NOT IN ('master','tempdb','model','msdb')",
+                engine,
+            )
+            idx = paginate_list(db_df, prompt="Select database")
+            if idx is None:
+                db_name = input("DB name (or 'q'): ").strip()
+                if db_name.lower() == "q":
+                    return
+            else:
+                db_name = db_df.iat[idx, 0]
+
+            conn_str = (
+                f"mssql+pyodbc://localhost/{db_name}"
+                "?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+            )
+
+        else:
+            creds_path = Path(__file__).resolve().parent / "server_credentials.csv"
+            saved = pd.read_csv(creds_path)
+            print("Saved servers:")
+            print(saved["Server_ip"])
+            sel = input("Pick number or 'new': ").strip().lower()
+
+            if sel == "new":
+                ip, user, pw = (
+                    input("IP: "),
+                    input("Username: "),
+                    input("Password: "),
+                )
+            else:
+                rec = saved.iloc[int(sel)]
+                ip, user, pw = rec["Server_ip"], rec["Username"], rec["Password"]
+
+            conn_str = (
+                f"mssql+pyodbc://{user}:{pw}@{ip}/master?"
+                "Driver=ODBC+Driver+17+for+SQL+Server"
+            )
+            engine = create_engine(conn_str)
+            db_df = pd.read_sql(
+                "SELECT name FROM sys.databases "
+                "WHERE name NOT IN ('master','tempdb','model','msdb')",
+                engine,
+            )
+            idx = paginate_list(db_df, prompt="Select database")
+            if idx is None:
+                db_name = input("DB name (or 'q'): ").strip()
+                if db_name.lower() == "q":
+                    return
+            else:
+                db_name = db_df.iat[idx, 0]
+
+            conn_str = (
+                f"mssql+pyodbc://{user}:{pw}@{ip}/{db_name}?"
+                "Driver=ODBC+Driver+17+for+SQL+Server"
+            )
+
+        # ---- 4-B Choose table ----
+        engine = create_engine(conn_str)
+        tbl_df = pd.read_sql(
+            "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES "
+            "WHERE TABLE_TYPE='BASE TABLE'",
+            engine,
+        )
+        tbl_idx = paginate_list(tbl_df, prompt="Connect tables")
+        if tbl_idx is None:
+            table_name = input("Table name (or 'q'): ").strip()
+            if table_name.lower() == "q":
+                return
+        else:
+            table_name = tbl_df.iat[tbl_idx, 0]
+
+        # ---- 4-C Dividend numbers present in that table ----
+        with engine.begin() as conn:
+            div_list = [
+                row[0]
+                for row in conn.execute(
+                    text(
+                        f"SELECT DIVNO FROM [{db_name}].[dbo].[{table_name}] "
+                        "GROUP BY DIVNO"
+                    )
+                )
+                if row[0] is not None
+            ]
+
+        print("Dividend list:", div_list)
+        run_updates(engine, db_name, table_name, div_list)
+
+    except Exception as exc:
+        print(f"\n❌ Error: {exc}")
+        input("\nPress any key to exit…")
+    else:
+        input("\n✔️ Done – press any key to exit…")
+
+
+# --------------------------------------------------------------
+# 5. Execute
+# --------------------------------------------------------------
+if __name__ == "__main__":
+    update_div()
+
+On Sat, 12 Jul 2025, 11:17 am Ronald Kipngetich, <ronald.kipngetich@image.co.ke <mailto:ronald.kipngetich@image.co.ke> > wrote:
+
+
+	Use localhost SQL Server? (y/n): n
+	Saved servers:
+	0    192.168.11.3
+	1    192.168.11.1
+	Name: Server_ip, dtype: object
+	Pick number or 'new': 0
+	C:\Users\Panda\OneDrive - IMAGE REGISTRARS LTD\Documents\py\Updates\clean_\newupdt.py:253: SAWarning: No driver name specified; this is expected by PyODBC when using DSN-less connections
+	  engine = create_engine(conn_str)
+
+	▶ Select database 0–5 of 5
+	  0 │ EABLDatabaseRegister
+	  1 │ Registers
+	  2 │ SharesRegister
+	  3 │ SupersetTestDB
+	  4 │ StandardCharteredRegister
+	  5 │ QueueSystem
+
+	[Enter]=next | p=prev | n=index | s:term | r=reset | q=quit
+	Select: 0
+	C:\Users\Panda\OneDrive - IMAGE REGISTRARS LTD\Documents\py\Updates\clean_\newupdt.py:273: SAWarning: No driver name specified; this is expected by PyODBC when using DSN-less connections
+	  engine = create_engine(conn_str)
+
+	▶ Connect tables 0–9 of 294
+	  0 │ 'DIV 70 1$'
+	  1 │ Dividend36
+	  2 │ 'DIV 71 REP AND CHEQUES$'
+	  3 │ Dividend37
+	  4 │ updateufaa
+	  5 │ 'DIV 72$'
+	  6 │ Dividend38
+	  7 │ Employee
+	  8 │ 'DIV 73$'
+	  9 │ Dividend39
+
+	[Enter]=next | p=prev | n=index | s:term | r=reset | q=quit
+	Select: s:updatetr
+
+	▶ Connect tables 0–1 of 1
+	  0 │ updatetrial
+	  1 │ eablupdatetrial
+
+	[Enter]=next | p=prev | n=index | s:term | r=reset | q=quit
+	Select: 0
+	Dividend list: [23, 46, 29, 9, 15, 3, 52, 66, 32, 26, 12, 35, 63, 6, 55, 43, 49, 67, 21, 27, 58, 64, 38, 7, 44, 50, 1, 24, 47, 18, 30, 10, 61, 41, 4, 19, 25, 36, 62, 13, 42, 5, 56, 22, 59, 39, 33, 16, 53, 45, 2, 48, 17, 31, 60, 40, 34, 11, 54, 20, 68, 28, 57, 14, 37, 8, 51]
+
+	❌ Error: (pyodbc.ProgrammingError) ('42S02', "[42S02] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Invalid object name 'Dividend66'. (208) (SQLExecDirectW)")
+	[SQL:
+	                SELECT src.*
+	                FROM [EABLDatabaseRegister].[dbo].[updatetrial] src
+	                INNER JOIN (SELECT ShareholderNo, DividendNo FROM Dividend23
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend46
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend29
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend9
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend15
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend3
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend52
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend66
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend32
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend26
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend12
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend35
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend63
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend6
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend55
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend43
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend49
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend67
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend21
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend27
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend58
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend64
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend38
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend7
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend44
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend50
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend24
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend47
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend18
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend30
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend10
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend61
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend41
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend4
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend19
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend25
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend36
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend62
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend13
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend42
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend5
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend56
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend22
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend59
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend39
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend33
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend16
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend53
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend45
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend2
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend48
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend17
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend31
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend60
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend40
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend34
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend11
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend54
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend20
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend68
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend28
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend57
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend14
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend37
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend8
+	UNION ALL
+	SELECT ShareholderNo, DividendNo FROM Dividend51) tgt
+	                    ON src.sno = tgt.ShareholderNo
+	                   AND src.divno = tgt.DividendNo
+	            ]
+	(Background on this error at: https://sqlalche.me/e/20/f405)
+
+	Press any key to exit…
+
+ Kind Regards,
+ Ronald Kipngetich,
+ ICT Officer
+
+
+	
+HEAD OFFICE
+
+UGANDA 
+
+5th; Floor, Absa Towers, Loita Street
+
+1st Floor, Jubilee Insurance Center, Plot 14, Parliament Avenue <https://www.google.com/maps/search/Plot+14,+Parliament+Avenue?entry=gmail&source=g> 
+
+P.O.Box 9287- 00100 GPO, Nairobi, Kenya
+
+DL: 0709170020
+
+P. O. Box 110228 Kampala Uganda
+
+T: +256 762 260 804/+256 758 336 660
+
+T: +254 709 170 000/+254 735 565 666
+
+
+www.image.co.ke <http://www.image.co.ke> 
+
+
+
+
+	Disclaimer: This email and any of its attachments contain information that is intended solely for the use of the individual or entity to whom it is addressed. If you are not the intended recipient, please notify the sender immediately and delete this email from your system. Any unauthorized use, disclosure, circulation, reproduction or reliance upon the contents of this email is strictly prohibited and may be unlawful.
+
+
+________________________________
+
+	From: KIPSANG Ronald Kipngetich <kipsang.ronald@students.jkuat.ac.ke <mailto:kipsang.ronald@students.jkuat.ac.ke> >
+	Sent: Saturday, July 12, 2025 11:14 AM
+	To: Ronald Kipngetich <ronald.kipngetich@image.co.ke <mailto:ronald.kipngetich@image.co.ke> >
+	Subject: 
+	 
+	# -------------------------------------------------------------- 
+	# update_div.py
+	# --------------------------------------------------------------
+	def update_div(localhost=None):
+	    """
+	    Compare a staging table with Dividend tables, preview changes,
+	    then apply updates that mark paid dividends and flag matched rows.
+	    """
+
+	    # ---------------------------------------------------------- #
+	    # 1. Ensure required modules are present
+	    # ---------------------------------------------------------- #
+	    import importlib
+	    import subprocess
+	    import sys
+	    from pathlib import Path
+
+	    def ensure_module(pkg, import_name=None):
+	        import_name = import_name or pkg
+	        try:
+	            importlib.import_module(import_name)
+	        except ImportError:
+	            print(f"🔍 '{import_name}' missing – installing '{pkg}' …")
+	            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
+	    for pkg in ("pandas", "sqlalchemy", "pyodbc", "openpyxl"):
+	        ensure_module(pkg)
+
+	    import pandas as pd
+	    from sqlalchemy import create_engine, text
+
+	    # ---------------------------------------------------------- #
+	    # 2. Friend-proof pager: numbered list, no pandas ellipsis
+	    # ---------------------------------------------------------- #
+	    def paginate_list(df, page_size=10, prompt="Select item"):
+	        """
+	        Display df (first column as label) page by page and return
+	        the absolute index chosen, or None if user quits.
+	        """
+	        full, filt = df.copy(), df.copy()
+	        page = 0
+
+	        while True:
+	            total = len(filt)
+	            start, end = page * page_size, min((page + 1) * page_size, total)
+	            print(f"\n▶ {prompt} {start}–{end - 1} of {total - 1}")
+	            for rel, (abs_i, row) in enumerate(filt.iloc[start:end].iterrows()):
+	                print(f"{rel:>3} │ {row.iloc[0]}")
+
+	            print("\n[Enter]=next | p=prev | n=index | s:term | r=reset | q=quit")
+	            cmd = input("Select: ").strip().lower()
+
+	            if cmd == "":
+	                page = page + 1 if end < total else page
+	            elif cmd == "p":
+	                page = max(page - 1, 0)
+	            elif cmd == "r":
+	                filt, page = full.copy(), 0
+	            elif cmd.startswith("s:"):
+	                term = cmd[2:].strip()
+	                filt, page = (
+	                    full[full.iloc[:, 0].str.lower().str.contains(term)],
+	                    0,
+	                )
+	            elif cmd == "q":
+	                return None
+	            elif cmd.isdigit():
+	                abs_idx = page * page_size + int(cmd)
+	                if 0 <= abs_idx < total:
+	                    return filt.index[abs_idx]
+	                print("❌ Invalid index.")
+	            else:
+	                print("❌ Unrecognised input.")
+
+	    # ---------------------------------------------------------- #
+	    # 3. Preview & update worker
+	    # ---------------------------------------------------------- #
+	    def run_updates(engine, db_name, table_name, div_list):
+	        """
+	        • Build a preview workbook listing matched / unmatched rows.
+	        • Ask user to confirm (optional).
+	        • Perform updates & mark matched rows.
+	        • Export any still-unmatched rows after the update.
+	        """
+	        with engine.begin() as connection:
+	            # ---------- 3-A Preview before touching data ----------
+	            union_parts = [
+	                "SELECT ShareholderNo, DividendNo FROM Dividend"
+	                if div_no == 1
+	                else f"SELECT ShareholderNo, DividendNo FROM Dividend{div_no}"
+	                for div_no in div_list
+	            ]
+	            union_sql = "\nUNION ALL\n".join(union_parts)
+
+	            matched_q = f"""
+	                SELECT src.*
+	                FROM [{db_name}].[dbo].[{table_name}] src
+	                INNER JOIN ({union_sql}) tgt
+	                    ON src.sno = tgt.ShareholderNo
+	                   AND src.divno = tgt.DividendNo
+	            """
+	            unmatched_q = f"""
+	                SELECT src.*
+	                FROM [{db_name}].[dbo].[{table_name}] src
+	                LEFT JOIN ({union_sql}) tgt
+	                    ON src.sno = tgt.ShareholderNo
+	                   AND src.divno = tgt.DividendNo
+	                WHERE tgt.ShareholderNo IS NULL
+	            """
+
+	            df_will = pd.read_sql(matched_q, connection)
+	            df_no = pd.read_sql(unmatched_q, connection)
+
+	            prev_path = f"./DIVS_PREVIEW_{db_name}_{table_name}.xlsx"
+	            with pd.ExcelWriter(prev_path, engine="openpyxl") as wrt:
+	                df_will.to_excel(wrt, sheet_name="Will_Update", index=False)
+	                df_no.to_excel(wrt, sheet_name="No_Match", index=False)
+
+	            print(f"\n📝 Preview saved to {prev_path}")
+
+	            # --------- 3-B (Optional) confirm continue ----------
+	            go = input("Proceed with updates? (y/n): ").strip().lower()
+	            if go != "y":
+	                print("Aborted by user.")
+	                return
+
+	            # ---------- 3-C Pick payment method ----------
+	            pay_df = pd.read_sql(
+	                f"""SELECT Code, Description
+	                    FROM [{db_name}].[dbo].[DividendPaymentMethods]
+	                    ORDER BY Description""",
+	                connection,
+	            )
+	            print("Payment methods:")
+	            pay_idx = paginate_list(pay_df, prompt="Select payment method")
+	            if pay_idx is None:
+	                code_in = input("Enter Code manually or 'q' to quit: ").strip()
+	                if code_in.lower() == "q":
+	                    print("Exiting…")
+	                    return
+	                pay_code = int(code_in)
+	                pay_desc = str(pay_code)
+	            else:
+	                pay_code = int(pay_df.at <http://pay_df.at> [pay_idx, "Code"])
+	                pay_desc = pay_df.at <http://pay_df.at> [pay_idx, "Description"]
+
+	        # ---------- 3-D Apply updates ----------
+	        succ, fail = [], []
+	        with engine.begin() as connection:
+	            for div_no in div_list:
+	                div_no = int(div_no)
+	                div_tbl = "Dividend" if div_no == 1 else f"Dividend{div_no}"
+
+	                set_clause = (
+	                    "DividendPaymentDate = src.Date, "
+	                    "DividendPaymentMethodCode = :pc, "
+	                    "DividendPaid = 1"
+	                    if db_name != "EABLDatabaseRegister"
+	                    else "DividendPaymentDate = src.Date, DividendPaid = 1"
+	                )
+
+	                upd = f"""
+	                    UPDATE {div_tbl}
+	                    SET {set_clause}
+	                    FROM {div_tbl} tgt
+	                    INNER JOIN {table_name} src
+	                        ON tgt.ShareholderNo = src.sno
+	                       AND tgt.DividendNo = src.divno
+	                """
+	                mark = f"""
+	                    UPDATE {table_name}
+	                    SET matched = 1
+	                    FROM {table_name} src
+	                    INNER JOIN {div_tbl} tgt
+	                        ON src.sno = tgt.ShareholderNo
+	                       AND src.divno = tgt.DividendNo
+	                """
+
+	                try:
+	                    # connection.execute(text(upd), {"pc": pay_code}) # ← rowcount if needed
+	                    connection.execute(text(upd), {"pc": pay_code})
+	                    connection.execute(text(mark))
+	                    succ.append(div_no)
+	                except Exception as e:
+	                    print(f"❌ Dividend{div_no} failed: {e}")
+	                    fail.append(div_no)
+
+	        print("\n✅ Updated:", succ or "None")
+	        print("❌ Failed :", fail or "None")
+
+	        # ---------- 3-E Export rows still unmatched ----------
+	        with engine.begin() as conn:
+	            df_out = pd.read_sql(
+	                f"""SELECT * FROM [{db_name}].[dbo].[{table_name}]
+	                    WHERE matched IS NULL""",
+	                conn,
+	            )
+	        out_path = f"./DIVS_NOT_UPDATED_{db_name}_{pay_desc}.xlsx"
+	        df_out.to_excel(out_path, engine="openpyxl")
+	        print(f"📄 Post-update unmatched rows → {out_path}")
+
+	    # ---------------------------------------------------------- #
+	    # 4. Top-level: connect, pick DB & table, launch run_updates
+	    # ---------------------------------------------------------- #
+	    try:
+	        # ---- 4-A Local or remote? ----
+	        if localhost is None:
+	            localhost = input("Use localhost SQL Server? (y/n): ").lower() == "y"
+
+	        if localhost:
+	            engine = create_engine(
+	                "mssql+pyodbc://localhost/master?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+	            )
+	            db_df = pd.read_sql(
+	                "SELECT name FROM sys.databases "
+	                "WHERE name NOT IN ('master','tempdb','model','msdb')",
+	                engine,
+	            )
+	            idx = paginate_list(db_df, prompt="Select database")
+	            if idx is None:
+	                db_name = input("DB name (or 'q'): ").strip()
+	                if db_name.lower() == "q":
+	                    return
+	            else:
+	                db_name = db_df.iat[idx, 0]
+
+	            conn_str = (
+	                f"mssql+pyodbc://localhost/{db_name}"
+	                "?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+	            )
+
+	        else:
+	            creds_path = Path(__file__).resolve().parent / "server_credentials.csv"
+	            saved = pd.read_csv(creds_path)
+	            print("Saved servers:")
+	            print(saved["Server_ip"])
+	            sel = input("Pick number or 'new': ").strip().lower()
+
+	            if sel == "new":
+	                ip, user, pw = (
+	                    input("IP: "),
+	                    input("Username: "),
+	                    input("Password: "),
+	                )
+	            else:
+	                rec = saved.iloc[int(sel)]
+	                ip, user, pw = rec["Server_ip"], rec["Username"], rec["Password"]
+
+	            conn_str = (
+	                f"mssql+pyodbc://{user}:{pw}@{ip}/master?"
+	                "Driver=ODBC+Driver+17+for+SQL+Server"
+	            )
+	            engine = create_engine(conn_str)
+	            db_df = pd.read_sql(
+	                "SELECT name FROM sys.databases "
+	                "WHERE name NOT IN ('master','tempdb','model','msdb')",
+	                engine,
+	            )
+	            idx = paginate_list(db_df, prompt="Select database")
+	            if idx is None:
+	                db_name = input("DB name (or 'q'): ").strip()
+	                if db_name.lower() == "q":
+	                    return
+	            else:
+	                db_name = db_df.iat[idx, 0]
+
+	            conn_str = (
+	                f"mssql+pyodbc://{user}:{pw}@{ip}/{db_name}?"
+	                "Driver=ODBC+Driver+17+for+SQL+Server"
+	            )
+
+	        # ---- 4-B Choose table ----
+	        engine = create_engine(conn_str)
+	        tbl_df = pd.read_sql(
+	            "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES "
+	            "WHERE TABLE_TYPE='BASE TABLE'",
+	            engine,
+	        )
+	        tbl_idx = paginate_list(tbl_df, prompt="Connect tables")
+	        if tbl_idx is None:
+	            table_name = input("Table name (or 'q'): ").strip()
+	            if table_name.lower() == "q":
+	                return
+	        else:
+	            table_name = tbl_df.iat[tbl_idx, 0]
+
+	        # ---- 4-C Dividend numbers present in that table ----
+	        with engine.begin() as conn:
+	            div_list = [
+	                row[0]
+	                for row in conn.execute(
+	                    text(
+	                        f"SELECT DIVNO FROM [{db_name}].[dbo].[{table_name}] "
+	                        "GROUP BY DIVNO"
+	                    )
+	                )
+	                if row[0] is not None
+	            ]
+
+	        print("Dividend list:", div_list)
+	        run_updates(engine, db_name, table_name, div_list)
+
+	    except Exception as exc:
+	        print(f"\n❌ Error: {exc}")
+	        input("\nPress any key to exit…")
+	    else:
+	        input("\n✔️ Done – press any key to exit…")
+
+
+	# --------------------------------------------------------------
+	# 5. Execute
+	# --------------------------------------------------------------
+	if __name__ == "__main__":
+	    update_div()
+
+	Website: www.jkuat.ac.ke <http://www.jkuat.ac.ke> 
+
+
+Website: www.jkuat.ac.ke <http://www.jkuat.ac.ke> 
